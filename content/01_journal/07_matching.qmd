@@ -10,14 +10,18 @@ View(store_df)
 
 ```
 
-Assignment 1:
+
 
 
 
 ```{r}
+#Assignment 1:
+
 # Load packages
+library(ggplot2)
 library(dagitty)
 library(ggdag)
+
 
 # Define DAG
 dag_model <- 'dag {
@@ -28,16 +32,111 @@ dag_model <- 'dag {
   Age [pos="0.25,0.25"]
   "Prevouis avg purchase" -> "card"
   "Prevouis avg purchase" -> "avg_purch"
-  Age -> "card"
-  Age -> "Prevouis avg purchase"
   Age -> "avg_purch"
+  Age -> "Prevouis avg purchase"
 }'
 
 # DAG with adjustment sets (and custom layout)
+# DAG with adjustment sets (and custom layout)
 ggdag_adjustment_set(dag_model, shadow = T, text = F) +
   guides(color = "none") +  # Turn off legend
-  #theme_dag_cds() + # custom layout (can be left out)
-  #geom_dag_point(color = ggthemr::swatch()[2]) + # custom color, can take any color
   geom_dag_text(color = NA) +
   geom_dag_edges(edge_color = "white") +
   geom_dag_label_repel(aes(label = name))
+```
+
+```{r}
+#Assignment 2:
+
+lm_naive <- lm(avg_purch ~ card, data = store_df)
+summary(lm_naive)
+```
+
+```{r}
+#Assignment 3:
+
+#1.) (Coarsened) Exact Matching.
+
+# Load 'MatchIt' library
+library(MatchIt)
+
+# Without specifying coarsening
+# (1) Matching
+cem <- matchit(card ~ age + pre_avg_purch,
+               data = store_df, 
+               method = 'cem', 
+               estimand = 'ATE')
+
+# Covariate balance
+summary(cem)
+
+
+```
+
+```{r}
+# Use matched data
+df_cem <- match.data(cem)
+
+# (2) Estimation
+model_cem <- lm(avg_purch ~ card, data = df_cem, weights = weights)
+summary(model_cem)
+```
+
+
+```{r}
+#2.) Nearest-Neighbor Matching.
+
+# (1) Matching
+# replace: one-to-one or one-to-many matching
+nn <- matchit(card ~ age + pre_avg_purch,
+              data = store_df,
+              method = "nearest", # changed
+              distance = "mahalanobis", # changed
+              replace = T)
+
+# Covariate Balance
+summary(nn)
+
+```
+
+```{r}
+# Use matched data
+df_nn <- match.data(nn)
+
+# (2) Estimation
+model_nn <- lm(avg_purch ~ card, data = df_nn, weights = weights)
+summary(model_nn)
+```
+
+```{r}
+#3). Inverse Probability Weighting.
+
+# (1) Propensity scores
+model_prop <- glm(card ~ age + pre_avg_purch,
+                  data = store_df,
+                  family = binomial(link = "logit"))
+summary(model_prop)
+```
+
+```{r}
+library(dplyr)
+# Add propensities to table
+df_aug <- store_df %>%
+  mutate(propensity = predict(model_prop, type = "response"))
+
+```
+
+```{r}
+# Extend data by IPW scores
+df_ipw <- df_aug %>% mutate(
+  ipw = (card/propensity) + ((1-card) / (1-propensity)))
+
+```
+
+```{r}
+# (2) Estimation
+model_ipw <- lm(avg_purch ~ card,
+                data = df_ipw, 
+                weights = ipw)
+summary(model_ipw)
+```
