@@ -1,7 +1,125 @@
 ---
 title: "Regression Discontinuity"
+autor: "Huzzaifa Khan"
 ---
 
-::: callout-note
-You can delete everything in here and start fresh.
-:::
+```{r}
+df <- readRDS("C:/Users/huzai/OneDrive/Documents/GitHub/tes/cdsba-cdx3745/content/Causal_Data_Science_Data/Causal_Data_Science_Data/coupon.rds")
+
+View(df)
+
+```
+
+```{r}
+# Define cut-off
+c0 <- 60
+
+library(rddensity)
+
+rddd <- rddensity(df$days_since_last, c = c0)
+summary(rddd)
+```
+
+```{r}
+# Assignment: 1
+
+library(tidyverse)
+
+half_BW <- c0 +c(-5/2,5/2)
+
+# Subsets below and above threshold in specified bandwidth
+df_bw_below <- df %>% filter(days_since_last >= half_BW [1] & days_since_last < c0)
+df_bw_above <- df %>% filter(days_since_last >= c0 & days_since_last <= half_BW [2])
+
+df_bw <- bind_rows(df_bw_above, df_bw_below)
+dim(df_bw)
+
+```
+
+```{r}
+#Local Average treatment effect (LATE) ----
+# Extract values for vertical lines to visualize local average treatment effect
+model_bw_below <- lm(purchase_after ~ days_since_last, df_bw_below)
+model_bw_above <- lm(purchase_after ~ days_since_last, df_bw_above)
+
+y0 <- predict(model_bw_below, tibble(days_since_last = c0))
+y1 <- predict(model_bw_above, tibble(days_since_last = c0))
+
+late <- y1 - y0
+sprintf("LATE: %.2f", late)
+```
+
+```{r}
+# [4] Estimation 
+# Compute coefficients for specified bandwidth.
+lm_bw <- lm(purchase_after ~ days_since_last_centered + coupon, df_bw)
+summary(lm_bw)
+```
+
+
+```{r}
+# Assignment: 2
+
+dbl_BW <- c0 + c(-10, 10)
+
+# Subsets below and above threshold in specified bandwidth
+df_bw_below <- df %>% filter(days_since_last >= dbl_BW [1] & days_since_last < c0)
+df_bw_above <- df %>% filter(days_since_last >= c0 & days_since_last <= dbl_BW [2])
+
+df_bw <- bind_rows(df_bw_above, df_bw_below)
+dim(df_bw)
+
+```
+
+```{r}
+#Local Average treatment effect (LATE) ----
+# Extract values for vertical lines to visualize local average treatment effect
+model_bw_below <- lm(purchase_after ~ days_since_last, df_bw_below)
+model_bw_above <- lm(purchase_after ~ days_since_last, df_bw_above)
+
+y0 <- predict(model_bw_below, tibble(days_since_last = c0))
+y1 <- predict(model_bw_above, tibble(days_since_last = c0))
+
+late <- y1 - y0
+sprintf("LATE: %.2f", late)
+```
+
+```{r}
+# [4] Estimation 
+# Compute coefficients for specified bandwidth.
+lm_bw <- lm(purchase_after ~ days_since_last_centered + coupon, df_bw)
+summary(lm_bw)
+```
+
+when we have a half BW than the size of observation gets smaller to 181 and when we double the BW it gets double.  The estimate for our outcome increases with decreasing the BW and P-value is more better to reject null hypothesis and support alternative hypothesis.
+
+```{r}
+# Assignment: 3
+
+ship_df <- readRDS("C:/Users/huzai/OneDrive/Documents/GitHub/tes/cdsba-cdx3745/content/Causal_Data_Science_Data/Causal_Data_Science_Data/shipping.rds")
+
+View(ship_df)
+
+```
+
+```{r}
+library(ggplot2)
+
+# Create a histogram
+ggplot(ship_df, aes(x = purchase_amount)) +
+  geom_histogram(binwidth = 4, fill = "red", color = "blue", alpha = 0.8) +
+  geom_vline(xintercept = 30, linetype = "dashed", color = "yellow", linewidth = 0.6) +
+  labs(title = "histogram distribution of Purchase Amounts",
+       x = "Purchase Amount (€)",
+       y = "Num of Customers") +
+  theme_minimal()
+```
+```{r}
+dist_dens <- rddensity(ship_df$purchase_amount, c = 30)
+summary(dist_dens)
+```
+```{r}
+dist_plot <- rdplotdensity(dist_dens, ship_df$purchase_amount, plotN = 100)
+```
+In my opinion RDD is not a well suited approach for this kind of treatment. As its seen in the Mccary denstiy test that the plot has no overlap of confidences around the cutoff point which is 30. 
+
