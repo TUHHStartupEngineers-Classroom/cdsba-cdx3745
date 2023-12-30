@@ -1,7 +1,81 @@
 ---
 title: "Instrumental Variables"
+author: "Huzzaifa"
 ---
 
-::: callout-note
-You can delete everything in here and start fresh.
-:::
+```{r}
+user_df <- readRDS("C:/Users/huzai/OneDrive/Documents/GitHub/tes/cdsba-cdx3745/content/Causal_Data_Science_Data/Causal_Data_Science_Data/rand_enc.rds")
+
+View(user_df)
+```
+
+```{r}
+#Assignment: 1
+
+library(dagitty)
+library(ggdag)
+library(ggplot2)
+
+app_DAG <- dagify(
+  X ~ U,
+  Y ~ U,
+  Y ~ X,
+  X ~ Z,
+  coords = list(x = c(Z = 0, Y = 3, U = 2, X = 1),
+                y = c(Z = 0, Y = 0, U = 1, X = 0)),
+  labels = list(X = "New Feature",
+                Y = "Time spent", 
+                Z = "Confounders",
+                IV = "Popup_note")
+)
+# Plot DAG
+ggdag(app_DAG) +
+  theme_dag_gray() + # custom theme, can be left out
+  geom_dag_point(color = "blue") +
+  geom_dag_text(color = "white") +
+  geom_dag_edges(edge_color = "black") +
+  geom_dag_label_repel(aes(label = label))
+
+```
+
+```{r}
+#Assignment: 2
+model_full <- lm(time_spent ~ used_ftr, data = user_df)
+summary(model_full)
+
+```
+
+```{r}
+#Assignment: 3
+
+# Correlation matrix
+cor(user_df) %>% round(2)
+```
+- As shown by the correlation matrix our instrument variable "rand_enc" is less correlated to our treatment variable used feature, that implies we have a weak instrument relevance. To test this assumption there might be some better procedure
+- Our instrument variable holds monotonically assumpotion as our correlation is positive
+-Our IV holds Exclusion restriction as the corr bw IV and Outcome "time_spent" is very low
+
+```{r}
+#Assignment: 4
+
+# First stage
+first_stage <- lm(used_ftr ~ rand_enc, data = user_df)
+summary(first_stage)
+```
+
+```{r}
+# Second stage
+second_stage <- lm(user_df$time_spent ~ first_stage$fitted.values)
+summary(second_stage)
+```
+
+```{r}
+library(estimatr)
+model_iv <- iv_robust(time_spent ~ used_ftr | rand_enc, data = user_df)
+summary(model_iv)
+```
+
+In my opinion naive approach has better estimate as compared to the IV approach. as the std. error is quite less in naive. I can think of 2 reasons:
+
+1- there may exist a cofounding bw our IV and treatment variable.
+2- With IV approach it might be that we get a better LATE estimate as there can be good IV variable whiich has more relevance to the treatment.
